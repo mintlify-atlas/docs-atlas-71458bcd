@@ -1,0 +1,114 @@
+---
+title: "Cloud Sync Overview: Offline-First with CloudBase"
+sidebarTitle: "Overview"
+description: "Work Time Recorder uses an offline-first sync architecture backed by Tencent CloudBase. Records are stored locally first and synced to the cloud when online."
+---
+
+Work Time Recorder is built around an offline-first philosophy: every record is written to `localStorage` immediately, and the cloud is treated as a secondary, optional store. You can run the app indefinitely without ever configuring cloud sync — nothing is gated behind an account. When you do connect a [Tencent CloudBase](https://tcb.cloud.tencent.com) environment, your data automatically syncs across devices using a lightweight Last-Write-Wins strategy.
+
+<Note>
+  Cloud sync requires a Tencent CloudBase environment to be configured in `config.js`. The app is fully usable without it — all timing, history, statistics, and settings work entirely in local storage.
+</Note>
+
+## Architecture
+
+Work Time Recorder uses `localStorage` as its primary data store. CloudBase's document database acts as the remote replica. Every document carries an `updatedAt` ISO timestamp, and conflicts are resolved by **Last-Write-Wins**: whichever copy has the later `updatedAt` wins during a merge.
+
+```
+┌─────────────────────┐       push / pull       ┌──────────────────────┐
+│   Browser (Device A) │  ◄──────────────────►  │  CloudBase Document  │
+│   localStorage       │   Last-Write-Wins merge │  Database (remote)   │
+└─────────────────────┘                          └──────────────────────┘
+         ▲                                                  ▲
+         │                                                  │
+         ▼                                                  ▼
+┌─────────────────────┐       same protocol     ┌──────────────────────┐
+│   Browser (Device B) │  ◄──────────────────►  │  shared cloud store  │
+│   localStorage       │                         │  (same environment)  │
+└─────────────────────┘                          └──────────────────────┘
+```
+
+## How a Save Triggers Sync
+
+When you save a work record, the following sequence fires synchronously on the client:
+
+1. `DataStore.saveRecord()` writes the record to `localStorage`.
+2. It immediately calls `SyncEngine.queueOp({ type: 'upsert', id, record })`, which appends or updates the operation in the `pendingSyncOps` queue (also persisted in `localStorage`).
+3. It then calls `SyncEngine.scheduleSync(800)` — a debounced timer that fires `syncNow()` after **800 ms** of inactivity. Rapid consecutive saves are coalesced into a single sync cycle.
+
+Because the write to `localStorage` completes before any network activity begins, the app remains fully responsive even if the device is offline when you save.
+
+## What `syncNow()` Does
+
+Each sync cycle executes the following steps in order:
+
+| Step | What happens |
+|------|-------------|
+| **Push pending ops** | Flushes the `pendingSyncOps` queue to CloudBase. Batches of ≥ 5 records use the `batchUpsertWorkRecords` cloud function (100 records per call) to stay within write QPS limits. |
+| **Backfill diff** | On the **first sync of each login session**, performs a full set-difference between local IDs and remote IDs and uploads any records missing from the cloud. Subsequent syncs skip this step. |
+| **Pull incremental changes** | Fetches all remote records with `updatedAt > lastSyncedAt - overlapWindow` (5-minute overlap by default; 24-hour overlap for manual syncs triggered by the "Sync Now" button). |
+| **Merge records** | Applies Last-Write-Wins on the pulled records against the local store; higher `updatedAt` wins. |
+| **Merge settings** | Pulls `user_settings` from the cloud and applies any newer values (tags, alarm presets, theme). |
+| **Check active session** | Queries `active_sessions` for a running timer on another device (see [Cross-Device Active Session](#cross-device-active-session) below). |
+| **Advance cursor** | Stores the server's `serverNow` timestamp (from the cloud function) as `lastSyncedAt` to prevent clock-skew gaps on the next pull. |
+
+## Sync Status Values
+
+The sync engine exposes its current state through `SyncEngine.STATUS`. UI components subscribe via `SyncEngine.onStatusChange(callback)` — the callback fires immediately with the current status and again on every subsequent change.
+
+| Status value | Meaning |
+|---|---|
+| `idle` | Cloud is configured but no sync is in progress (local-only mode or not yet logged in). |
+| `syncing` | A sync cycle is actively running. |
+| `synced` | The last sync cycle completed with no pending operations. |
+| `offline` | A sync attempt failed due to a network error; a retry is scheduled. |
+| `error` | A sync attempt failed for a non-network reason; automatic retries have been exhausted. |
+| `not_configured` | `APP_CONFIG.isCloudEnabled()` returned `false` — `CLOUDBASE_ENV` is missing or still set to the placeholder value. |
+
+### Subscribing to Status Changes
+
+```js
+const unsubscribe = SyncEngine.onStatusChange((status) => {
+  console.log('Sync status changed to:', status);
+  // e.g. update a UI badge
+});
+
+// Later, to stop listening:
+unsubscribe();
+```
+
+## Cloud Features Enabled Check
+
+Before making any CloudBase API calls, the app always checks:
+
+```js
+APP_CONFIG.isCloudEnabled()
+// returns false when CLOUDBASE_ENV is missing, 'your-env-id', or 'xxxx-yyy'
+```
+
+When this returns `false`, `SyncEngine.scheduleSync()` immediately sets status to `not_configured` and returns without queuing a timer. No CloudBase SDK calls are ever made in that case.
+
+## Cross-Device Active Session
+
+When you start a timer on **Device A**, the engine writes the in-progress session to the `active_sessions` collection (document ID = user UID). **Device B** watches that collection with a CloudBase `watch` listener. When a change arrives, the UI shows a prompt:
+
+> "Another device is timing — show this session here?"
+
+Accepting the prompt restores the running session on Device B so you can manage or stop it from either device. If the current device has recently finished a session, the incoming `active_sessions` update is suppressed for 60 seconds (`CLEARED_SESSION_IGNORE_MS`) to prevent false positives.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Set Up CloudBase" icon="cloud" href="/cloud/cloudbase-setup">
+    Create a CloudBase environment, configure authentication, and deploy cloud functions.
+  </Card>
+  <Card title="Data Schema" icon="database" href="/cloud/data-schema">
+    Explore the four database collections and their document shapes.
+  </Card>
+  <Card title="Data Migration" icon="arrow-right-arrow-left" href="/cloud/data-migration">
+    Move existing local records into the cloud when connecting for the first time.
+  </Card>
+  <Card title="Mainland Deployment" icon="server" href="/deployment/domestic-server">
+    Host the app on a server inside Mainland China for best CloudBase latency.
+  </Card>
+</CardGroup>

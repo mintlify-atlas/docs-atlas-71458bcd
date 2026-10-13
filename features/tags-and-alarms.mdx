@@ -1,0 +1,173 @@
+---
+title: "Work Tags and Timed Alarm Reminders"
+sidebarTitle: "Tags & Alarms"
+description: "Categorise work sessions with custom tags and set repeating alarms up to 8 hours. Work Time Recorder uses tags to separate work time from rest time in statistics."
+---
+
+Work Time Recorder gives you two tools to stay organised and on-schedule: **tags** let you classify every work session so the statistics panel can separate productive work from rest time, and **alarms** fire an audio alert and a system notification after a configurable interval so you never lose track of how long you have been in a single stretch. Both features are fully customisable and persist their configuration to `localStorage`.
+
+---
+
+## Tags
+
+### Default tags
+
+When the app first loads with no saved tag list, `loadTags()` writes the following defaults to `DataStore` under the `workTags` localStorage key:
+
+```
+開発  学習  調試  文書  休息
+```
+
+The special constant `REST_TAG = '休息'` marks the rest category. Any session whose work name contains this tag (detected by splitting on ` - ` separators) is treated as a rest session rather than productive work time.
+
+### Quick-tag bar
+
+The quick-tag bar renders one button per tag below the work name input. Clicking a tag button runs the following logic:
+
+```js
+// From renderQuickTags() in script.js
+const currentValue = workNameInput.value.trim();
+if (!currentValue) {
+  workNameInput.value = tagName;
+} else {
+  workNameInput.value = currentValue + ' - ' + tagName;
+}
+syncQuickTagSelection();
+```
+
+The tag is appended with a ` - ` separator so `getTagsInWorkName()` can later parse it back out. If the same tag already appears in the work name, its button carries the `selected` CSS class. Clicking a selected tag removes it by rewriting the work name without that segment.
+
+### Managing tags
+
+Open the tag management modal by clicking **管理標籤**. From there you can:
+
+- **Add** a new tag: type a name (max 20 characters) and click **➕ 添加** or press Enter. Duplicate names and empty strings are rejected.
+- **Reorder** tags: drag any row by its `☰` handle. On `dragend` the new DOM order is read back and saved via `DataStore.saveTags(newOrder)`, and `renderQuickTags()` immediately reflects the change in the quick-tag bar.
+- **Delete** a tag: click the 🗑️ button on any row and confirm the prompt. The tag is removed from the stored list.
+
+### REST_TAG and statistics
+
+The constant `REST_TAG = '休息'` drives the three-way filter in the statistics panel:
+
+| Filter mode | What is counted |
+|---|---|
+| `work` (default) | Sessions that do **not** contain `REST_TAG` |
+| `rest-tag` | Sessions that **do** contain `REST_TAG` |
+| `all` | Every session regardless of tags |
+
+```js
+// From script.js — isRestRecord checks for REST_TAG in the work name
+function isRestByTag(record) {
+  const workName = record.workName || '';
+  return getTagsInWorkName(workName).includes(REST_TAG);
+}
+```
+
+Rest-tagged sessions are excluded from the "Work" totals shown in the today / week / month summary cards, giving you an accurate picture of productive time even if you log coffee breaks.
+
+### DataStore API for tags
+
+```js
+DataStore.getTags()         // Returns string[] from localStorage key 'workTags'
+DataStore.saveTags(tags)    // Persists string[] and triggers a cloud settings sync
+```
+
+---
+
+## Alarms
+
+### Enabling the alarm
+
+The alarm controls live inside the **More Settings** `<details>` collapsible section. Toggle the alarm on with the checkbox labelled `alarmToggle`. Enabling it:
+
+1. Sets `alarmEnabled = true`.
+2. Expands the alarm options area (`alarmOptions.classList.add('active')`).
+3. Calls `unlockAlarmAudio()` to satisfy browser autoplay policies (see below).
+
+Disabling the toggle clears any running alarm timer, releases the `AudioContext`, and resets `alarmMinutes` to `0`.
+
+The `alarmHeaderBadge` element in the page header shows the active alarm duration (e.g. `30分鐘 ✓`) whenever the alarm is on and a duration has been set. It hides automatically when the alarm is disabled.
+
+### Setting a duration
+
+**Preset buttons** — a row of buttons is rendered from the stored preset list. Clicking one calls `setAlarmMinutes(minutes)`, which saves the value to `alarmMinutes`, updates the header badge, unlocks audio, and (re)starts the countdown if a session is currently active.
+
+**Custom duration** — type any value between **1 and 480 minutes** into the custom input and click **設置** (or press Enter). `setCustomAlarm()` validates the range and delegates to `setAlarmMinutes()`.
+
+### Alarm presets
+
+The preset list is persisted under the `alarmPresets` localStorage key. The factory defaults are `[5, 10, 15, 30, 45]`.
+
+```js
+DataStore.getAlarmPresets()        // Returns number[] (1–480, sorted)
+DataStore.saveAlarmPresets(presets) // Persists and syncs to cloud settings
+```
+
+You can add or remove preset values from the **Manage Presets** panel (toggled by `toggleAlarmPresetsBtn`). Added values are sorted ascending and rendered as chip badges with an × remove button. Changes are immediately reflected in the preset button row.
+
+### What happens when an alarm fires
+
+When the countdown completes, `triggerAlarm()` runs three actions simultaneously:
+
+1. **Audio tone** — `playAlarmSound()` uses the Web Audio API to play three short beeps at 880 Hz with a 0.35 s gap between each:
+   ```js
+   playBeep(now,        0.3, 880); // beep 1
+   playBeep(now + 0.35, 0.3, 880); // beep 2
+   playBeep(now + 0.70, 0.3, 880); // beep 3
+   ```
+2. **Desktop notification** — if `Notification.permission === 'granted'`, a system notification is shown with the title `工作時間記錄器` and a body describing the elapsed alarm duration. Click the notification to bring the tab into focus.
+3. **Modal dialog** — the `alarmModal` overlay appears with two buttons:
+   - **繼續計時** — calls `continueAlarm()`, which dismisses the modal and immediately calls `startAlarmTimer()` to begin a fresh countdown cycle.
+   - **結束** — calls `endFromAlarm()`, which dismisses the modal and then calls `endWork()` to stop and save the current session.
+
+### Notification permission
+
+The notification permission button calls `Notification.requestPermission()`. The status label below the button reflects the current state:
+
+| `Notification.permission` | Status text |
+|---|---|
+| `granted` | 已開啟，到點將彈出系統通知 |
+| `denied` | 已拒絕。請在瀏覽器設置中允許本站通知。 |
+| `default` | 未開啟，需點擊「開啟系統通知」授權。 |
+
+<Accordion title="How the alarm progress bar works">
+  While a session is active and an alarm duration is set, a progress bar fills from left to right over the chosen interval. It updates every second on the same `setInterval` tick that drives the elapsed counter.
+
+  **Key variables:**
+  - `alarmStartedAt` — `Date.now()` timestamp captured when `startAlarmTimer()` is called. Reset to `0` when the timer is cleared (unless `{ keepProgress: true }` is passed).
+  - `alarmMinutes` — the chosen interval in minutes.
+
+  **Progress calculation (inside `updateAlarmProgress()`):**
+  ```js
+  const totalMs  = alarmMinutes * 60 * 1000;
+  const elapsed  = Date.now() - alarmStartedAt;
+  const remaining = Math.max(0, totalMs - elapsed);
+  const ratio    = Math.min(1, Math.max(0, elapsed / totalMs));
+
+  alarmProgressBar.style.width = `${(ratio * 100).toFixed(2)}%`;
+  alarmRemainingValue.textContent = formatRemaining(remaining);
+  ```
+
+  **Colour states:**
+  - **Default** — no extra class; neutral accent colour.
+  - **Warning** — `alarmProgress.classList.add('warning')` when `ratio >= 0.75` (75 % elapsed).
+  - **Danger** — `alarmProgress.classList.add('danger')` when `ratio >= 0.90` (90 % elapsed), and again when the alarm fires (100 %).
+
+  The remaining time label shows `MM:SS` for durations under one hour and `HH:MM:SS` for longer alarms.
+
+  When the alarm is disabled or the session ends, `hideAlarmProgress()` hides the bar, removes all colour classes, and resets the label to `00:00`.
+</Accordion>
+
+### Web Audio unlock
+
+Browsers require a user gesture before an `AudioContext` can play sound. Work Time Recorder addresses this by calling `unlockAlarmAudio()` whenever the user interacts with any alarm control (the toggle, a preset button, or the custom Set button). The function plays a near-silent 10 ms tone immediately inside the gesture handler, then calls `audioContext.resume()` if the context is suspended. If the audio context is not yet running when the alarm fires, `playAlarmSound()` attempts one final `resume()` before playing the beeps.
+
+```js
+// Simplified from unlockAlarmAudio() in script.js
+playSilentUnlockTone(audioContext); // near-zero gain, 10 ms
+if (audioContext.state === 'suspended') {
+  audioContext.resume();
+}
+```
+
+When `endWork()` is called, `releaseAlarmAudio()` closes and discards the `AudioContext` to free browser resources.

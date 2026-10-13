@@ -1,0 +1,163 @@
+---
+title: "Dark and Light Themes with PWA Offline Support"
+sidebarTitle: "Themes & PWA"
+description: "Switch between dark and light mode in Work Time Recorder. Install it as a PWA for offline access and a native-app feel on desktop and mobile."
+---
+
+Work Time Recorder ships with built-in dark and light themes and full Progressive Web App (PWA) support. Theme preferences are remembered across sessions, the interface automatically follows your operating system setting unless you override it manually, and the app can be installed to your desktop or home screen for a native-app feel — complete with offline access to all cached assets.
+
+## Theme switching
+
+A toggle button in the header lets you flip between light and dark mode at any time. The button displays ☀️ when dark mode is active (click to switch to light) and 🌙 when light mode is active (click to switch to dark).
+
+### Initialization
+
+`initTheme()` runs once at page load. It reads the saved preference from `localStorage` using `DataStore.getTheme()`, then applies or skips dark mode:
+
+```js
+function initTheme() {
+    const savedTheme = DataStore.getTheme();
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeToggle.textContent = '☀️';
+    } else {
+        themeToggle.textContent = '🌙';
+    }
+
+    // Only apply OS preference changes if the user has not set a manual preference
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        if (!DataStore.getTheme()) {
+            if (e.matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                themeToggle.textContent = '☀️';
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                themeToggle.textContent = '🌙';
+            }
+        }
+    });
+}
+```
+
+The decision logic is:
+
+1. If `localStorage` key `theme` is `'dark'` → apply dark mode.
+2. If no saved preference exists **and** `prefers-color-scheme: dark` matches → apply dark mode.
+3. Otherwise → stay in light mode.
+
+A `change` listener on the `prefers-color-scheme` media query keeps the UI in sync when the OS switches between light and dark — but **only** if the user has not manually chosen a theme. Once you click the toggle button, your explicit choice takes priority over the system setting.
+
+### Toggling the theme
+
+`toggleTheme()` reads the current `data-theme` attribute on `<html>`, flips it, saves the new value, and refreshes all charts:
+
+```js
+function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+    if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        DataStore.saveTheme('light');
+        themeToggle.textContent = '🌙';
+    } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        DataStore.saveTheme('dark');
+        themeToggle.textContent = '☀️';
+    }
+
+    if (typeof StatsCharts !== 'undefined') StatsCharts.refresh();
+}
+```
+
+`DataStore.saveTheme()` writes the value to `localStorage` under the key `theme`. `StatsCharts.refresh()` redraws all statistics charts so their colors match the new theme immediately, without a page reload.
+
+### Theme storage
+
+| `localStorage` key | Possible values |
+|---|---|
+| `theme` | `'dark'` \| `'light'` \| *(not set — follows OS)* |
+
+---
+
+## PWA (Progressive Web App)
+
+Work Time Recorder ships a `manifest.json` and a Service Worker (`sw.js`) that together enable installation as a standalone app and full offline functionality.
+
+### Web app manifest
+
+`manifest.json` declares the metadata browsers use when installing the app:
+
+```json
+{
+  "name": "工作时间记录器",
+  "short_name": "工时记录",
+  "description": "简洁美观的工作时间记录工具",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#5a9bc4",
+  "background_color": "#d4dfe8"
+}
+```
+
+`display: standalone` means the installed app opens without any browser chrome (no address bar, no tab strip), giving it the look and feel of a native application.
+
+### Service Worker registration
+
+`registerServiceWorker()` is called at startup and registers `sw.js` with the browser:
+
+```js
+function registerServiceWorker() {
+    // The Electron desktop build serves files locally — no Service Worker needed
+    if (window.electronAPI) {
+        return;
+    }
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(() => console.log('Service Worker registered'))
+            .catch((err) => console.log('Service Worker registration failed:', err));
+    }
+}
+```
+
+<Note>
+  Service Worker registration is **skipped automatically** when Work Time Recorder is running inside the Electron desktop wrapper. The presence of `window.electronAPI` signals the Electron context; in that environment files are served from a local static server and a Service Worker is unnecessary.
+</Note>
+
+### Caching strategy
+
+`sw.js` uses two caching strategies depending on the file type:
+
+| Strategy | Files covered | Behavior |
+|---|---|---|
+| **Network-first** (Stale-While-Revalidate) | `index.html`, `script.js`, `style.css`, and all other app source files | Always tries the network first; falls back to the cache if the network is unavailable. Fresh responses are written back to the cache. |
+| **Cache-first** | Vendor/static assets (e.g. `vendor/cloudbase.js`) | Serves from cache immediately; fetches from the network only if the asset is not cached yet. |
+
+`sw.js` itself should be served by your web server with a `no-cache` response header so browsers always fetch the latest version of the Service Worker on each visit, allowing cache updates to propagate immediately.
+
+To force all users to pick up new cached files, increment the `CACHE_NAME` constant in `sw.js`:
+
+```js
+// sw.js
+const CACHE_NAME = 'work-time-recorder-v31'; // bump this to bust the cache
+```
+
+On activation, the Service Worker deletes any caches whose name does not match the current `CACHE_NAME`, ensuring stale assets are cleaned up automatically.
+
+### Installing the app
+
+<Steps>
+  <Step title="Desktop — Chrome or Edge">
+    Visit the app URL in Chrome or Edge. After the first successful load the browser detects the manifest and Service Worker and displays an **install icon** (➕ or a download arrow) in the address bar. Click it, then confirm in the dialog that appears. The app will open in its own window the next time you launch it.
+  </Step>
+  <Step title="Mobile — iOS Safari">
+    Open the app in Safari on iPhone or iPad. Tap the **Share** button (the box-with-arrow icon at the bottom of the screen), then scroll down and tap **Add to Home Screen**. Give the shortcut a name and tap **Add**. The app icon will appear on your home screen.
+  </Step>
+  <Step title="Mobile — Android Chrome">
+    Open the app in Chrome on Android. Either wait for the browser's **install banner** to appear at the bottom of the screen and tap **Install**, or tap the **three-dot menu** (⋮) in the top-right corner and choose **Install App** (or **Add to Home screen**, depending on your Chrome version).
+  </Step>
+  <Step title="Launch and use offline">
+    After installation the app opens in standalone mode — no browser address bar or tab strip. All cached assets are available offline, so the app works even without an internet connection. Data continues to be saved locally in `localStorage` as usual.
+  </Step>
+</Steps>

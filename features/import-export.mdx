@@ -1,0 +1,157 @@
+---
+title: "CSV Import and Export for Work Records and Todos"
+sidebarTitle: "Import & Export"
+description: "Export work records and todos from Work Time Recorder as CSV files for backup or analysis. Import CSV files to restore data or migrate from another tool."
+---
+
+Work Time Recorder stores all data in the browser's `localStorage`, which means it is never automatically backed up to a server. The CSV import and export features let you take that data out of the browser for safekeeping, move it to a different machine, analyse it in a spreadsheet, or restore it after a browser reset. Work records and todos each have their own dedicated export and import flows.
+
+---
+
+## Exporting Work Records
+
+Click the **📤 导出** button in the History panel (or press `Ctrl+E` / `Cmd+E` from anywhere on the page when focus is not inside an input field). The browser immediately downloads a file named:
+
+```
+工作记录_YYYY-MM-DD.csv
+```
+
+where `YYYY-MM-DD` is the current local date at the moment of export (for example `工作记录_2024-01-15.csv`).
+
+### File Format
+
+The file begins with a UTF-8 BOM (`\uFEFF`) so that Excel on Windows opens it with the correct encoding without any extra import steps.
+
+```csv
+日期,开始时间,结束时间,工作时长(小时),工作内容
+2024-01-15,2024-01-15T09:00:00,2024-01-15T17:00:00,8.00,Feature: login page
+2024-01-15,2024-01-15T14:00:00,2024-01-15T14:30:00,0.50,Team standup
+2024-01-14,2024-01-14T10:00:00,2024-01-14T11:30:00,1.50,"Review PR, add comments"
+```
+
+| Column | Format | Notes |
+|---|---|---|
+| `日期` | `YYYY-MM-DD` | Local calendar date of the session's start time |
+| `开始时间` | `YYYY-MM-DDTHH:MM:SS` | Local time — **not** UTC |
+| `结束时间` | `YYYY-MM-DDTHH:MM:SS` | Local time — **not** UTC |
+| `工作时长(小时)` | Decimal hours, 2 d.p. (e.g. `1.50`) | Derived from the stored millisecond `duration` field |
+| `工作内容` | Plain text | Work names containing commas or double-quotes are wrapped in double-quotes; embedded double-quotes are escaped as `""` |
+
+Records are written in the same newest-first order returned by `DataStore.getRecords()`.
+
+<Tip>
+  Schedule a regular export — weekly or at the end of every project — to keep a safe offline copy of your work history. `localStorage` is cleared whenever you clear browser data, switch browsers, or use a private/incognito window.
+</Tip>
+
+---
+
+## Importing Work Records
+
+Click the **📥 导入** button in the History panel. A hidden file input opens the system file picker. Select a `.csv` file and the import begins immediately.
+
+### Constraints
+
+| Limit | Value |
+|---|---|
+| Maximum records per import | 5 000 |
+| Maximum file size | 2 MB |
+
+Files that exceed 2 MB are rejected before parsing begins.
+
+### Row Validation
+
+Each data row (after the header) is validated independently. A row is skipped — and counted as an error — if any of the following conditions apply:
+
+- The row has fewer than 4 columns after CSV parsing.
+- The start time string cannot be parsed as a valid `Date`.
+- The end time string cannot be parsed as a valid `Date`.
+- End time is not strictly later than start time.
+- The duration (hours) column is missing, non-numeric, or ≤ 0.
+
+Invalid rows do not abort the import. After parsing is complete, a confirmation dialog summarises:
+
+```
+将导入 42 条记录
+（3 条记录因格式错误被跳过）
+
+是否继续？
+```
+
+If you confirm, `DataStore.importRecords(newRecords)` is called with the array of validated records. Each record is assigned a new UUID by `DataStore.generateId()`, then appended to the existing records in `localStorage` and re-sorted newest-first. Existing records are never overwritten or removed.
+
+### Handling Errors
+
+If no valid rows are found, a detailed error dialog is shown instead of the confirmation prompt. It lists up to five specific row errors, for example:
+
+```
+未能导入任何有效记录，请检查CSV文件格式
+
+错误详情:
+第2行: 开始时间格式无效
+第5行: 结束时间必须晚于开始时间
+第8行: 工作时长无效
+
+期望的CSV格式:
+日期,开始时间,结束时间,工作时长(小时),工作内容
+2024-01-12,2024-01-12T09:00:00,2024-01-12T17:00:00,8.00,开发工作
+```
+
+### Keyboard Shortcut
+
+Pressing `Ctrl+E` (or `Cmd+E` on macOS) while focus is outside any text input triggers `exportToCSV()` directly. There is no keyboard shortcut for import — you must click the button.
+
+```
+Ctrl + E   →   Export work records CSV
+```
+
+<Warning>
+  Clicking **清空** (Clear All) in the History panel calls `DataStore.clearAllRecords()`, which **permanently removes every work record from localStorage**. This action is irreversible — there is no undo. Always export a backup before clearing.
+</Warning>
+
+---
+
+## Exporting Todos
+
+The Todos panel has its own **📤 导出** button (separate from the work-record export). It downloads all todos across all dates as a single CSV file named:
+
+```
+待办_YYYY-MM-DD.csv
+```
+
+### Todo CSV Format
+
+```csv
+日期,标题,完成,排序
+2024-01-15,Write release notes,false,0
+2024-01-15,Deploy to staging,true,1
+2024-01-14,Review pull request,true,0
+```
+
+| Column | Format | Notes |
+|---|---|---|
+| `日期` | `YYYY-MM-DD` | The calendar date the todo belongs to |
+| `标题` | Plain text | The todo's title |
+| `完成` | `true` / `false` | Whether the todo has been checked off |
+| `排序` | Integer (0-based) | The display order within that day |
+
+---
+
+## Importing Todos
+
+Click the **📥 导入** button in the Todos panel and select a CSV file that matches the todo format above. The same 2 MB file size limit applies.
+
+Imported todos always receive freshly generated IDs via `TodoModel.generateId()`. This means an import never overwrites or deduplicates against existing todos — every valid row is appended as a new todo, even if a todo with identical content already exists for that date.
+
+The import calls `DataStore.importTodos(parsed)`, which returns the count of successfully added todos. A success alert is shown:
+
+```
+成功导入 12 条待办！
+```
+
+### "Clear" Button Scope
+
+The **清空** (Clear) button in the Todos panel calls `DataStore.clearTodosByDate(dateStr)`, which removes **only the todos belonging to the date currently shown in the panel**. Todos on all other dates are untouched.
+
+<Tip>
+  Export your todos before using the Clear button if you need a record of completed tasks. The CSV preserves the `完成` (done) state of every item.
+</Tip>

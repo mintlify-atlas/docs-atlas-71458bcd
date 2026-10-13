@@ -1,0 +1,137 @@
+---
+title: "One-Click Time Tracking with Live Elapsed Timer"
+sidebarTitle: "Time Tracking"
+description: "Start and stop work sessions with a single click. Work Time Recorder timestamps each session, shows a live elapsed counter, and lets you name each session for easy filtering later."
+---
+
+Work Time Recorder keeps time tracking as frictionless as possible: one button starts a session, one button ends it. While a session is running, a live `HH:MM:SS` elapsed counter and a real-time wall-clock update every second so you always know how long you have been working. Every completed session is stamped with its start time, end time, and duration, then persisted to `localStorage` so your history survives a page refresh or a browser restart.
+
+## The Start / Stop Flow
+
+### Status indicator
+
+The coloured dot next to the status label tells you at a glance whether a session is active:
+
+| State | Dot class | Label |
+|---|---|---|
+| Recording | `status-dot active` (green) | 已開始 |
+| Idle | `status-dot stopped` (grey) | 未開始 |
+
+While recording, the **Start** button is disabled and the **Stop** button is enabled; the inverse is true when idle.
+
+### Work name input
+
+Before clicking **Start** you can optionally type a name describing what you are working on. The input accepts up to **50 characters**. You can also choose from a dropdown that lists today's incomplete todos — selecting an entry copies its title into the work name field. The name is not bound to the todo by ID, so editing the todo later has no effect on the saved session.
+
+If you leave the field blank, the session is saved under the default name `未命名工作`.
+
+Once a session starts the input is disabled so the name cannot be changed mid-session. After you stop, the field clears and focus returns to the input ready for the next session.
+
+### Quick-tag bar
+
+Below the work name input a row of tag buttons provides one-click categorisation. Clicking a tag appends ` - tagName` to the current work name value (or sets it to `tagName` when the field is empty). Clicking the same tag a second time removes it. The button receives a `selected` CSS class while its tag is present in the work name, so the bar always reflects the current input state.
+
+```js
+// Appending a tag — from renderQuickTags() in script.js
+const currentValue = workNameInput.value.trim();
+if (!currentValue) {
+  workNameInput.value = tagName;
+} else {
+  workNameInput.value = currentValue + ' - ' + tagName;
+}
+syncQuickTagSelection();
+```
+
+### Live elapsed counter and wall clock
+
+Two displays update every second via a shared `setInterval` (started once in `startClock()`):
+
+- **Elapsed counter** — `elapsedDisplay` shows `HH:MM:SS` since `currentRecord.startTime`.
+- **Wall clock** — `wallClockTime` shows the current local time in 24-hour format.
+
+When no session is active the elapsed counter reads `00:00:00`.
+
+---
+
+## How a Session Is Recorded
+
+<Steps>
+  <Step title="Click Start (or press Space)">
+    `startWork()` is called. It captures `new Date().toISOString()` as `startTime`, sets `currentRecord.isActive = true`, and calls `DataStore.saveCurrentRecord(currentRecord)` to persist the in-progress session under the `currentRecord` localStorage key.
+  </Step>
+  <Step title="Timer runs">
+    The existing `clockInterval` (set up at page load) updates `elapsedDisplay` and `wallClockTime` every second. The alarm progress bar, if enabled, also updates on the same tick.
+  </Step>
+  <Step title="Click Stop (or press Space again)">
+    `endWork()` is called. It stamps `currentRecord.endTime = new Date().toISOString()`, sets `isActive = false`, and calculates the duration in milliseconds.
+  </Step>
+  <Step title="Save to history">
+    The completed record is passed to `DataStore.saveRecord()`, which normalises it (assigning a UUID if absent), appends it to the `workTimeRecords` array in localStorage, and fires any registered `onDataChanged` listeners.
+  </Step>
+  <Step title="Clean up">
+    `DataStore.clearCurrentRecord()` removes the `currentRecord` key, the work name input is cleared and re-enabled, and the statistics panel is refreshed.
+  </Step>
+</Steps>
+
+---
+
+## The `currentRecord` localStorage Key
+
+The in-progress session is stored as a JSON object under the key `currentRecord`:
+
+```json
+{
+  "startTime": "2024-06-10T09:15:00.000Z",
+  "endTime": null,
+  "isActive": true,
+  "workName": "Feature development - 開発"
+}
+```
+
+When the page loads, `loadCurrentRecord()` reads this key via `DataStore.getCurrentRecord()`. If a record with `isActive: true` is found and its `startTime` falls on today, the session is resumed automatically — the elapsed counter continues from where it left off and the input stays disabled.
+
+<Note>
+  **Cross-day auto-close:** If the browser is closed while a session is active and then re-opened on a different calendar day, Work Time Recorder detects the mismatch (`start.toDateString() !== now.toDateString()`) and immediately calls `endWork()`. The session is saved with an end time equal to the moment the page reloaded, so no time is lost. This is handled inside `loadCurrentRecord()` at startup.
+</Note>
+
+---
+
+## Keyboard Shortcut
+
+Pressing **`Space`** anywhere on the page (when focus is not inside a text input or textarea) toggles the timer — starting a new session if idle, or stopping the current one if active.
+
+```js
+// From initKeyboardShortcuts() in script.js
+if (e.code === 'Space') {
+  e.preventDefault();
+  if (startBtn.disabled) {
+    endWork();
+  } else {
+    startWork();
+  }
+}
+```
+
+---
+
+## Electron Desktop Integration
+
+When Work Time Recorder is running as an Electron desktop app, two additional integration points are active:
+
+- **`window.electronAPI.onToggleTimer(callback)`** — the system tray menu item fires this callback to start or stop the timer without the browser window needing focus.
+- **`window.electronAPI.reportStatus(status)`** — called after every state change and every clock tick, it pushes the current `{ running, elapsed, workName }` payload to the tray so the tray icon can reflect the live status.
+
+```js
+// From initElectronBridge() in script.js
+if (typeof window.electronAPI.onToggleTimer === 'function') {
+  window.electronAPI.onToggleTimer(() => {
+    if (currentRecord.isActive) {
+      endWork();
+    } else {
+      startWork();
+    }
+  });
+}
+```
+
+If `window.electronAPI` is not present (normal browser context), the bridge is skipped entirely and has no effect.

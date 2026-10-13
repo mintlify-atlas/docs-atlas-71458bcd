@@ -1,0 +1,86 @@
+---
+title: "Work Time Recorder: One-Click Time Tracking in Your Browser"
+sidebarTitle: "Introduction"
+description: "Work Time Recorder is a zero-dependency browser app that records work sessions with a single click, stores data locally, and optionally syncs to the cloud. Learn what it does and how it works."
+---
+
+Work Time Recorder is a lightweight, browser-based application for tracking how you spend your working hours. There is nothing to install, no account required, and no server to configure — open the page, click **Start**, and your session begins. All data is written directly to your browser's `localStorage`, so it persists across page reloads without touching a remote database. For teams or individuals who want cross-device access, an optional CloudBase sync layer and a packaged Electron Mac app are also available.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="One-Click Timer" icon="play">
+    Hit **▶ Start** to begin a session and **⏸ Stop** to end it. The elapsed time is shown live on screen, and each completed session is saved instantly to your history. Press the **Space** key anywhere outside an input field to toggle the timer hands-free.
+  </Card>
+  <Card title="Daily Todos" icon="list-check">
+    A built-in to-do panel lets you plan your day alongside your time records. Tasks are organised by date, can be checked off when complete, and are exportable as CSV. You can also pick a todo from the dropdown to pre-fill the work name when starting a new session.
+  </Card>
+  <Card title="Tag Categorisation" icon="tag">
+    Apply quick-select tags (e.g. Development, Meeting, Learning, Rest) to each work session for easy filtering and reporting. Custom tags can be added, reordered by drag-and-drop, and deleted from the tag management modal. Tags are stored per-session as part of the work name using a ` - ` separator.
+  </Card>
+  <Card title="Alarm Reminders" icon="bell">
+    Set a countdown alarm using preset durations (5, 10, 15, 30, 45 minutes) or any custom value up to 480 minutes. A progress bar tracks remaining time, and a Web Audio API chime fires when the countdown ends. Browser push notifications are supported for background alerts.
+  </Card>
+  <Card title="History & Statistics" icon="chart-bar">
+    All past sessions appear in a sortable history panel with edit and delete controls. The Stats tab shows today's total, this week's total, and this month's total, with separate breakdowns for work sessions, rest sessions, and all sessions combined.
+  </Card>
+  <Card title="CSV Import / Export" icon="file-arrow-down">
+    Export your entire history as a UTF-8 CSV file (`工作记录_YYYY-MM-DD.csv`) with columns for date, start time, end time, duration in hours, and work name. Import a previously exported CSV to merge records — up to 5,000 rows per import, 2 MB file size limit.
+  </Card>
+  <Card title="Dark / Light Theme" icon="moon">
+    Toggle between dark and light modes with the ☀️/🌙 button in the top-right corner. The preference is saved to `localStorage` and restored automatically on every visit. The app also respects your OS-level `prefers-color-scheme` setting when no manual choice has been made.
+  </Card>
+  <Card title="PWA Offline Support" icon="wifi-slash">
+    A registered Service Worker caches all static assets using a cache-first strategy, so the app works fully offline after the first visit. On Chrome and Edge you can install it as a standalone app; on mobile, use **Add to Home Screen** from the browser menu.
+  </Card>
+  <Card title="Optional Cloud Sync" icon="cloud">
+    Log in with a CloudBase account to sync your records, todos, tags, and settings across multiple devices in real time. The sync engine uses an operation queue with conflict resolution, so you can work offline and merge changes when connectivity returns.
+  </Card>
+  <Card title="Electron Mac App" icon="apple">
+    A local Electron wrapper lets you run Work Time Recorder as a native macOS application. The Electron bridge exposes a `window.electronAPI` interface that the web layer uses for toggle-timer shortcuts and status reporting from the menu bar.
+  </Card>
+</CardGroup>
+
+## Technology Stack
+
+Work Time Recorder is built entirely with platform primitives — no frameworks, no build tools, no dependencies to install:
+
+| Layer | Technology |
+|---|---|
+| Markup | HTML5 with semantic elements and ARIA attributes |
+| Styles | CSS3 — custom properties, gradients, transitions, responsive layout |
+| Logic | JavaScript ES6+ modules (`script.js`, `data-store.js`) |
+| Persistence | Browser `localStorage` API |
+| Offline | Service Worker with cache-first + stale-while-revalidate strategy |
+| Desktop | Optional Electron wrapper for macOS |
+| Cloud | Optional Tencent CloudBase (authentication + database + sync) |
+
+## Data Storage
+
+<Note>
+All application data lives in your browser's `localStorage` under the following keys:
+
+- **`workTimeRecords`** — array of completed work session records
+- **`todos`** — array of daily to-do items keyed by date
+- **`currentRecord`** — the in-progress session, if one is active (allows timer recovery after a page reload)
+- **`workTags`** — ordered array of tag names for quick-select categorisation
+- **`alarmPresets`** — array of saved alarm durations in minutes
+- **`theme`** — user's chosen colour scheme (`"light"` or `"dark"`)
+
+Clearing your browser's site data will permanently delete all records. Use the **Export** button regularly to keep an offline CSV backup.
+</Note>
+
+## Browser Support
+
+Work Time Recorder runs in all modern browsers that support ES6+ JavaScript and the `localStorage` API:
+
+- **Chrome** 80+
+- **Firefox** 75+
+- **Safari** 13.1+
+- **Edge** 80+
+
+PWA installation and Service Worker offline caching require HTTPS or `localhost`. If you open `index.html` directly as a `file://` URL, timers and history still work, but the Service Worker will not register.
+
+## Next Steps
+
+Ready to record your first session? Head to the [Quickstart](/quickstart) to be up and running in under two minutes.

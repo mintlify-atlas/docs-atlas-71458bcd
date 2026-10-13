@@ -1,0 +1,123 @@
+---
+title: "Migrate Local Data to CloudBase Cloud Storage"
+sidebarTitle: "Data Migration"
+description: "Move existing Work Time Recorder data from localStorage to CloudBase cloud storage, or restore from a Supabase export. Three migration scenarios with step-by-step instructions."
+---
+
+Work Time Recorder supports three migration paths depending on where your data currently lives. The simplest path is **Scenario A** — if your records are already in `localStorage`, the sync engine handles the migration automatically the first time you log in. Scenarios B and C cover legacy Supabase data and clean-slate restarts respectively.
+
+<Tip>
+  If you already have local work records, use Scenario A. The app performs a full local-vs-cloud diff on first login and uploads any records that are missing from the cloud without prompting you. No manual steps are required.
+</Tip>
+
+---
+
+## Scenario A — Local data exists (recommended)
+
+This is the default path for users who have been using the app without cloud sync and are now linking a CloudBase account for the first time.
+
+```
+1. Complete CloudBase setup (fill in your environment ID in config.js)
+2. Open the app and register / log in
+3. On first login for a new account, the sync engine runs a full diff:
+   a. Fetches all cloud record IDs
+   b. Uploads any local records missing from the cloud (backfill)
+   c. Pulls any cloud records not in localStorage (merge)
+4. The status bar shows "Synced" (已同步) when complete
+5. Click "Sync Now" (立即同步) at any time to force a full re-check
+```
+
+On first bind to a new cloud account, `SyncEngine.resetSyncCursorForFirstBind()` resets the incremental sync cursor to the epoch, which makes the next `syncNow()` call equivalent to a full union merge (local ∪ cloud) without any overwrite dialogs. Subsequent syncs are incremental and only transfer changes made since the last successful sync.
+
+You can also trigger the local-to-cloud upload programmatically:
+
+```js
+// Upload all local records to the cloud; onProgress is called with (done, total)
+await DataStore.migrateLocalToCloud('local', {
+  onProgress(done, total) {
+    console.log(`Uploading ${done} / ${total}`);
+  }
+});
+
+// Overwrite localStorage with all active cloud records
+await DataStore.migrateLocalToCloud('cloud');
+```
+
+---
+
+## Scenario B — Data only in Supabase (legacy migration)
+
+Use this path if your historical records exist only in a Supabase database and your local `localStorage` is empty.
+
+**Step 1 — Export from Supabase**
+
+Open the Supabase Dashboard, navigate to **Table Editor → `work_records`**, and export the table as CSV or JSON.
+
+**Step 2 — Remap field names**
+
+Supabase uses snake_case column names; CloudBase uses camelCase. Apply the following mapping before importing:
+
+| Supabase field | CloudBase field |
+|---|---|
+| `id` | Document `_id` |
+| `start_time` | `startTime` |
+| `end_time` | `endTime` |
+| `duration_ms` | `duration` |
+| `work_name` | `workName` |
+| `updated_at` | `updatedAt` |
+| `deleted_at` | `deletedAt` |
+
+**Step 3 — Import into CloudBase**
+
+Import the remapped data into the `work_records` collection. Each document must include an `_openid` field set to the target user's `uid`. You can use the CloudBase console's batch import tool or a Node.js migration script.
+
+**Step 4 — Sync to localStorage**
+
+Log in to the app. The sync engine will pull the newly imported cloud records into `localStorage` automatically.
+
+---
+
+## Scenario C — Start fresh
+
+Use this path if the amount of historical data is small, or if you are switching to a brand-new cloud account and want a clean slate.
+
+1. Open the app and click the **📤 Export** button to download a CSV backup of your current records.
+2. Log in to CloudBase with the new account (or register a new one).
+3. Use the **📥 Import** button inside the app to re-import the CSV backup.
+
+The import function creates new UUIDs for each row and queues an upload for every imported record, so they will appear in the cloud after the next sync completes.
+
+---
+
+## Programmatic migration API
+
+The following functions are available to developers who are extending the app or automating migrations:
+
+```js
+// Upload all local records to the cloud.
+// onProgress(done, total) is called after each batch for UI feedback.
+await DataStore.migrateLocalToCloud('local', { onProgress });
+
+// Overwrite localStorage with the full set of active cloud records.
+// WARNING: any records that exist only in localStorage will be lost.
+await DataStore.migrateLocalToCloud('cloud');
+
+// Reset the incremental sync cursor so the next syncNow() performs
+// a full re-sync (local ∪ cloud diff) instead of an incremental pull.
+SyncEngine.resetSyncCursorForFirstBind();
+```
+
+<Warning>
+  Calling `DataStore.migrateLocalToCloud('cloud')` replaces the entire contents of `localStorage` with data from the cloud. Any work records or todos that exist only locally — including unsaved edits or records created while offline — will be permanently overwritten. Always export a CSV backup before running a cloud-overwrite migration.
+</Warning>
+
+---
+
+## Post-migration checklist
+
+After completing any migration scenario, verify the following:
+
+- [ ] Historical record count matches expectations after login
+- [ ] Creating, editing, and deleting a record syncs correctly
+- [ ] Tags, theme, and alarm presets are synced across devices
+- [ ] An in-progress timer started on one device appears on another

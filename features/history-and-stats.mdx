@@ -1,0 +1,180 @@
+---
+title: "Work History, Filtering, and Statistics Charts"
+sidebarTitle: "History & Stats"
+description: "Browse and filter all past work sessions in Work Time Recorder. Edit or delete individual records. View daily, weekly, and monthly totals with interactive bar charts."
+---
+
+The right panel of Work Time Recorder is divided into three tabs — **History**, **Todos**, and **Stats** — giving you a complete picture of everything you have recorded. The History tab lists every completed session in reverse-chronological order, with controls to filter by date and to edit or delete individual records. The Stats tab aggregates those same records into daily, weekly, and monthly totals, and renders them as an interactive bar chart you can navigate backward and forward in time.
+
+---
+
+## History Panel
+
+### How Records Are Displayed
+
+Every time you stop a session, the record is written to `localStorage` via `DataStore.saveRecord()` and immediately rendered in the History list. `DataStore.getRecords()` returns only non-deleted records (those without a `deletedAt` timestamp), sorted newest-first.
+
+Each card in the list shows:
+
+<ResponseField name="Date label" type="string">
+  Displays **今天** (Today), **昨天** (Yesterday), or a localised long-form date such as **2024年1月15日** for older entries. The label is derived from the session's `startTime` in the local timezone — not UTC — so early-morning sessions always appear on the correct calendar date.
+</ResponseField>
+
+<ResponseField name="Duration" type="string">
+  The total elapsed time formatted as `HH:MM:SS` (e.g. `01:23:45`), calculated directly from the stored `duration` field in milliseconds.
+</ResponseField>
+
+<ResponseField name="Work name" type="string">
+  The free-text label you entered before starting, shown below the duration (e.g. `📝 Feature: login page`).
+</ResponseField>
+
+<ResponseField name="Tag chips" type="array">
+  Any tags embedded in the work name (tags are separated from the name by ` - `) are displayed as small chips directly beneath the header row. Tags are matched against your saved tag list at render time, so renaming a tag in the tag manager does not retroactively change existing records.
+</ResponseField>
+
+<ResponseField name="Start / End times" type="string">
+  The wall-clock start and end times in `HH:MM:SS` format, shown as `🕐 开始:` and `🕐 结束:`.
+</ResponseField>
+
+---
+
+### Filtering by Date
+
+A date picker and **筛选** (Filter) button sit above the history list.
+
+1. Select any date in the date input — it defaults to today's local date on page load.
+2. Click **筛选** to call `applyFilter()`. The list re-renders showing only records whose `startTime` falls on that local calendar date.
+3. Click **重置** (Reset) to clear the filter and restore the full record list.
+
+<Note>
+  Date matching uses the session's local date string (`YYYY-MM-DD`) rather than a UTC comparison. This prevents sessions that start just after midnight from being assigned to the previous day.
+</Note>
+
+---
+
+### Editing a Record
+
+Click the **✏️** button on any card to open the edit modal. The modal pre-fills three fields:
+
+| Field | Input type | Notes |
+|---|---|---|
+| Work name | Text | Free-form; up to 50 characters |
+| Start time | `datetime-local` | Rounded to the minute in the picker; stored as a full ISO 8601 string |
+| End time | `datetime-local` | Must be after start time and must not be in the future |
+
+Clicking **💾 保存** runs the following validations before saving:
+
+- Start and end times must both be present.
+- End time must be strictly later than start time.
+- Neither time may be in the future.
+
+On success, `DataStore.updateRecord(id, patch)` is called with the updated `startTime`, `endTime`, `duration` (recalculated), and `workName`. The history list and statistics panel both refresh automatically.
+
+---
+
+### Deleting a Record
+
+Click the **🗑️** button on any card. A browser confirmation dialog asks:
+
+> 确定要删除这条记录吗？此操作不可恢复！
+
+If you confirm, `DataStore.deleteRecord(idOrTimestamp)` removes the record from `localStorage` and re-renders the history and statistics. Deletion is permanent; the record is not soft-deleted in local mode.
+
+<Warning>
+  Deleted records cannot be recovered unless you have an exported CSV backup. Consider exporting regularly — see [Import & Export](/features/import-export).
+</Warning>
+
+---
+
+## Statistics Panel
+
+Switch to the **Stats** tab to see aggregated totals and a bar chart of recent activity.
+
+### Filter Modes
+
+Three tabs at the top of the panel control which sessions contribute to the totals and the chart:
+
+| Mode | Label | What is included |
+|---|---|---|
+| `work` | 工作 | All sessions **except** those tagged with `休息` (REST_TAG). This is the default. |
+| `rest-tag` | 休息 | Only sessions that include the `休息` tag in their work name. |
+| `all` | 全部 | Every session regardless of tags. In chart view this mode stacks work and rest bars. |
+
+The active mode is persisted in `localStorage` under the key `statsChartFilterMode` and restored on the next page load. If the stored value is not one of the three valid modes it falls back to `work`.
+
+---
+
+### Summary Cards
+
+Below the filter tabs, nine summary cards show totals across three time windows for each mode:
+
+| Window | Range |
+|---|---|
+| **今天** (Today) | From midnight of the current local day to midnight of the next |
+| **本周** (This Week) | From the most recent Monday 00:00 to the following Monday 00:00 |
+| **本月** (This Month) | From the first of the current month to the first of the next month |
+
+All totals are displayed as `HH:MM:SS`. They are computed by `sumDurationInRange()`:
+
+```js
+function sumDurationInRange(records, rangeStart, rangeEnd, filterFn) {
+    let totalMs = 0;
+    records.forEach((record) => {
+        const recordDate = new Date(record.startTime);
+        if (recordDate >= rangeStart && recordDate < rangeEnd && filterFn(record)) {
+            totalMs += record.duration;
+        }
+    });
+    return totalMs;
+}
+```
+
+The `filterFn` argument is derived from the currently active mode:
+
+```js
+function getStatsFilterFn(mode) {
+    if (mode === 'rest-tag') return isRestByTag;          // only 休息-tagged sessions
+    if (mode === 'all')      return () => true;            // everything
+    return (record) => !isRestRecord(record);              // non-休息 sessions (default)
+}
+```
+
+Statistics refresh automatically whenever a session ends or a record is edited or deleted.
+
+---
+
+### Bar Chart
+
+The interactive bar chart is powered by the `StatsCharts` module (`stats-charts.js`), which draws directly onto an HTML `<canvas>` element using the 2D Canvas API — no external charting library is required.
+
+**Initialisation and refresh**
+
+`StatsCharts.init()` is called once during page load. It sets up period-tab click handlers, previous/next navigation buttons, a `ResizeObserver` that redraws when the panel is resized, and mouse-move/leave listeners for tooltips. `StatsCharts.refresh()` is called every time the filter mode changes, a record is modified, or the theme is toggled.
+
+**Period tabs**
+
+| Tab | Buckets | X-axis labels |
+|---|---|---|
+| **周** (Week) | 7 bars — Mon through Sun | 周一 … 周日 with the calendar date below |
+| **月** (Month) | One bar per calendar day | Day number (1 – 31) |
+| **年** (Year) | 12 bars — one per month | 1月 … 12月 |
+
+Click **‹** or **›** to navigate to the previous or next period. The anchor date shifts by 7 days (week), 1 month, or 1 year accordingly.
+
+**Stacking in All mode**
+
+When the `all` filter is active, each bar is split into two stacked segments: a blue segment for work time and a green segment for rest time. Hovering over a bar shows a tooltip such as:
+
+```
+周三 (1/15): 工作 03:12:00 · 休息 00:30:00
+```
+
+In the other two modes (work or rest-tag) each bar shows a single solid segment with the total duration for that bucket.
+
+**Hover tooltips**
+
+Move the cursor over any bar to see an exact `HH:MM:SS` total for that day, week-day, or month. The tooltip is positioned just above the cursor and disappears when the mouse leaves the chart area.
+
+**Today / current-period highlight**
+
+The bar corresponding to today (in week or month view) or the current month (in year view) is rendered in a slightly more saturated colour to make the current position immediately visible.

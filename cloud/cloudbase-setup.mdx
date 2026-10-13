@@ -1,0 +1,198 @@
+---
+title: "Configure CloudBase for Cloud Sync and Authentication"
+sidebarTitle: "CloudBase Setup"
+description: "Set up a Tencent CloudBase environment, configure email authentication, create the four database collections, and deploy the batch upload cloud functions."
+---
+
+Work Time Recorder's cloud sync is powered by [Tencent CloudBase](https://tcb.cloud.tencent.com) (TCB). This guide walks you through every step required to go from a blank TCB account to a fully working sync setup: environment creation, authentication, database collections, security rules, indexes, and cloud function deployment. Complete the steps in order — later steps depend on earlier ones.
+
+<Steps>
+
+<Step title="Create a CloudBase Environment">
+
+Open the [CloudBase console](https://console.cloud.tencent.com/tcb) and create a new environment.
+
+- **Region**: Select **Shanghai (`ap-shanghai`)**. This must match the `CLOUDBASE_REGION` value you will set in `config.js` in the next step.
+- After creation, copy the **Environment ID** — it has the format `common-xxxxxxxx`.
+
+Keep this page open; you will need the Environment ID in the next step.
+
+</Step>
+
+<Step title="Configure config.js">
+
+Copy the example configuration file and fill in your Environment ID:
+
+```bash
+cp config.example.js config.js
+```
+
+Edit `config.js` with your values:
+
+```js config.js
+const APP_CONFIG = {
+    CLOUDBASE_ENV: 'common-your-env-id',
+    CLOUDBASE_REGION: 'ap-shanghai',
+    CLOUDBASE_BATCH_FN: 'batchUpsertWorkRecords',
+    CLOUDBASE_PULL_FN: 'pullWorkRecordChanges',
+
+    isCloudEnabled() {
+        return Boolean(
+            this.CLOUDBASE_ENV &&
+            this.CLOUDBASE_ENV !== 'your-env-id' &&
+            this.CLOUDBASE_ENV !== 'xxxx-yyy'
+        );
+    }
+};
+```
+
+Replace `common-your-env-id` with the Environment ID you copied in Step 1. Leave `CLOUDBASE_REGION`, `CLOUDBASE_BATCH_FN`, and `CLOUDBASE_PULL_FN` as shown unless you have renamed the cloud functions.
+
+`isCloudEnabled()` returns `false` when `CLOUDBASE_ENV` is missing or still set to a placeholder value — this prevents the SDK from initialising when cloud sync has not been configured.
+
+</Step>
+
+<Step title="Enable Authentication">
+
+Navigate to **Environment → Auth → Login methods** in the CloudBase console.
+
+<Warning>
+  This app uses **Auth v1** exclusively (`/auth/v1/signup`, `/auth/v1/signin`). Do **not** enable or mix in Auth v2 methods — the two versions are incompatible and will cause login failures.
+</Warning>
+
+Enable the following two login methods:
+
+| Method | Console path | Purpose |
+|--------|-------------|---------|
+| **Username / Password login** | Regular login → Enable | Handles sign-in (email is passed as the `username` field) |
+| **Email verification code** | Email verification code → Enable + configure sending | Delivers the one-time code required during registration |
+
+For the email verification code to work you must also configure outbound email sending. Under **Email verification code → Configure sending**, the built-in sending service is recommended.
+
+**Registration flow** — users complete three fields:
+1. Email address
+2. Password (8–32 characters, must contain both letters and digits)
+3. Email verification code (sent to the address above)
+
+On successful submission the user is automatically signed in.
+
+**Login flow** — users provide their email and password. The email is submitted in the `username` field of the Auth v1 sign-in call.
+
+</Step>
+
+<Step title="Add Security Domains">
+
+Navigate to **Environment → Security → Web security domains** and add the following entries (without `https://` prefix):
+
+- `localhost:8080` — required for local development
+- Your production domain (e.g. `flytime.cloud`)
+
+CloudBase will reject SDK initialisation from any origin not listed here.
+
+</Step>
+
+<Step title="Create the Four Database Collections">
+
+Navigate to **Environment → Database** and create the following four collections. Use the exact names shown — they are hardcoded in the sync engine.
+
+| Collection | Document ID field | Purpose |
+|---|---|---|
+| `work_records` | Record UUID | Work session history (start/end times, duration, work name) |
+| `todos` | Todo UUID | Per-day task lists |
+| `user_settings` | User UID | Tags, alarm presets, and theme preferences |
+| `active_sessions` | User UID | In-progress session document for cross-device sync |
+
+</Step>
+
+<Step title="Set Security Rules">
+
+Apply the following security rule to **each** of the four collections. In the console, select a collection → **Security rules → Edit** and paste:
+
+```json
+{
+  "read": "doc._openid == auth.uid",
+  "write": "doc._openid == auth.uid"
+}
+```
+
+This ensures users can only read and write their own documents. CloudBase automatically populates `_openid` with the authenticated user's UID when a document is created.
+
+</Step>
+
+<Step title="Create Indexes">
+
+Indexes are required for the incremental pull query (`updatedAt > lastSyncedAt`) to perform efficiently. Create the following **non-unique** compound indexes in the console under **Environment → Database → [collection] → Indexes**.
+
+**On `work_records`:**
+
+| Field | Order |
+|---|---|
+| `_openid` | Ascending |
+| `updatedAt` | Ascending |
+
+| Field | Order |
+|---|---|
+| `_openid` | Ascending |
+| `startTime` | Descending |
+
+**On `todos`:**
+
+| Field | Order |
+|---|---|
+| `_openid` | Ascending |
+| `updatedAt` | Ascending |
+
+</Step>
+
+<Step title="Deploy Cloud Functions">
+
+<Note>
+  Cloud functions are strongly recommended for any deployment that may accumulate 5 or more records in a single sync batch. Without them, bulk uploads (e.g. 100+ records during a first sync) trigger hundreds of individual database write requests against the CloudBase API, which quickly exhausts the per-environment write QPS limit and causes uploads to stall. With the cloud functions, the same 637-record upload completes in just 7 `callFunction` calls — one per 100-record batch — instead of 637+ direct database requests.
+</Note>
+
+Install the CloudBase CLI and authenticate:
+
+```bash
+npm install -g @cloudbase/cli
+tcb login
+```
+
+Configure the project with your Environment ID:
+
+```bash
+cp cloudbaserc.example.json cloudbaserc.json
+# Edit cloudbaserc.json — set envId to your Environment ID
+```
+
+Install dependencies and deploy the batch upsert function:
+
+```bash
+cd cloudfunctions/batchUpsertWorkRecords && npm install && cd ../..
+tcb fn deploy batchUpsertWorkRecords --dir cloudfunctions/batchUpsertWorkRecords
+```
+
+Install dependencies and deploy the incremental pull function:
+
+```bash
+cd cloudfunctions/pullWorkRecordChanges && npm install && cd ../..
+tcb fn deploy pullWorkRecordChanges --dir cloudfunctions/pullWorkRecordChanges
+```
+
+The `pullWorkRecordChanges` function returns a `serverNow` timestamp alongside the changed records. The sync engine uses this server-side timestamp — rather than the local clock — to advance its `lastSyncedAt` cursor, preventing clock-skew from causing records to be permanently missed on future incremental pulls.
+
+</Step>
+
+</Steps>
+
+## Verification Checklist
+
+Run through this checklist before testing your first sync:
+
+- [ ] `config.js` has the correct `CLOUDBASE_ENV` (not the placeholder value)
+- [ ] Username / Password login is enabled in the CloudBase console
+- [ ] Email verification code is enabled and outbound sending is configured
+- [ ] Security domains include `localhost:8080` and your production domain
+- [ ] All four collections (`work_records`, `todos`, `user_settings`, `active_sessions`) are created with the correct security rules
+- [ ] Compound indexes are created on `work_records` (two indexes) and `todos` (one index)
+- [ ] `batchUpsertWorkRecords` cloud function is deployed
+- [ ] `pullWorkRecordChanges` cloud function is deployed

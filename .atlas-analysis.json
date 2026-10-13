@@ -1,0 +1,115 @@
+{
+  "projectType": "saas",
+  "projectName": "Work Time Recorder",
+  "projectDescription": "A browser-based work time tracking application with one-click timer start/stop, todo management, tag-based categorization, alarm reminders, CSV import/export, optional CloudBase cloud sync, and an Electron Mac desktop app.",
+  "theme": "luma",
+  "primaryColor": "#4F7EFF",
+  "lightColor": "#EEF3FF",
+  "darkColor": "#1A2A5E",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Getting Started",
+        "groups": [
+          {
+            "group": "Introduction",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/time-tracking",
+              "features/todos",
+              "features/tags-and-alarms",
+              "features/history-and-stats",
+              "features/import-export"
+            ]
+          },
+          {
+            "group": "Keyboard & UI",
+            "pages": [
+              "features/keyboard-shortcuts",
+              "features/themes-and-pwa"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Deployment",
+        "groups": [
+          {
+            "group": "Web Deployment",
+            "pages": [
+              "deployment/github-pages",
+              "deployment/domestic-server"
+            ]
+          },
+          {
+            "group": "Mac Desktop App",
+            "pages": [
+              "deployment/mac-app"
+            ]
+          },
+          {
+            "group": "Cloud Sync (CloudBase)",
+            "pages": [
+              "cloud/overview",
+              "cloud/cloudbase-setup",
+              "cloud/data-schema",
+              "cloud/data-migration"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "One-click timer start/stop with live elapsed display",
+    "Daily todo list with date filtering and drag-reorder",
+    "Tag-based work categorization with quick-tag bar",
+    "Alarm reminders with preset and custom durations (1–480 min)",
+    "History records with date filter, inline edit, and delete",
+    "Daily/weekly/monthly statistics with chart views",
+    "CSV import/export (up to 5000 records, 2 MB)",
+    "Dark/light theme with system preference detection",
+    "PWA offline support via Service Worker",
+    "Optional CloudBase cloud sync with Last-Write-Wins merge",
+    "Electron Mac desktop app with system tray and global hotkey",
+    "Cross-device active-session sync via CloudBase watch"
+  ],
+  "publicApiSurface": [
+    "DataStore.saveRecord(record)",
+    "DataStore.getRecords()",
+    "DataStore.updateRecord(idOrStartTime, patch)",
+    "DataStore.deleteRecord(idOrStartTime)",
+    "DataStore.importRecords(newRecords)",
+    "DataStore.clearAllRecords()",
+    "DataStore.saveTodo(todo)",
+    "DataStore.getTodos()",
+    "DataStore.updateTodo(id, patch)",
+    "DataStore.deleteTodo(id)",
+    "DataStore.importTodos(newTodos)",
+    "DataStore.getTags() / saveTags(tags)",
+    "DataStore.getAlarmPresets() / saveAlarmPresets(presets)",
+    "DataStore.getTheme() / saveTheme(theme)",
+    "DataStore.syncNow(options)",
+    "DataStore.migrateLocalToCloud(strategy, options)",
+    "SyncEngine.syncNow({ manual })",
+    "SyncEngine.scheduleSync(delayMs)",
+    "SyncEngine.onStatusChange(callback)",
+    "SyncEngine.queueOp(op)",
+    "SyncEngine.migrateLocalToCloud(strategy, { onProgress })",
+    "Auth.isLoggedIn()",
+    "Auth.getUserId()",
+    "Auth.callFunction(name, data)",
+    "window.electronAPI.onToggleTimer(callback)",
+    "window.electronAPI.reportStatus({ running, elapsed, workName })",
+    "APP_CONFIG.CLOUDBASE_ENV",
+    "APP_CONFIG.CLOUDBASE_BATCH_FN",
+    "APP_CONFIG.CLOUDBASE_PULL_FN",
+    "APP_CONFIG.isCloudEnabled()"
+  ]
+}

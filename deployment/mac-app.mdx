@@ -1,0 +1,164 @@
+---
+title: "Run Work Time Recorder as a Mac Desktop App with Electron"
+sidebarTitle: "Mac App"
+description: "Package Work Time Recorder as a native macOS desktop app using Electron. Includes a system tray icon, global keyboard shortcut, and auto-start local server."
+---
+
+Work Time Recorder ships as a native macOS desktop app powered by Electron. When launched, it spins up a built-in HTTP server, opens a titled application window, and places a persistent icon in the macOS menu bar — so the app stays running in the background even after you close the window. This page walks through installing dependencies, running in development mode, building a distributable `.app` or `.dmg`, and diagnosing common issues.
+
+## Prerequisites
+
+- macOS (any recent version)
+- Node.js 18+ LTS
+- npm
+
+## Install Dependencies
+
+If you are on a network that routes through China, set the Electron mirror before installing to avoid slow or failed downloads:
+
+```bash
+export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/  # China mirror (optional)
+npm install
+```
+
+The `postinstall` hook automatically runs `scripts/ensure-electron.js`, which verifies that the Electron binary downloaded correctly. If the app later fails to start with a message about a missing Framework, re-run the check manually:
+
+```bash
+npm run ensure-electron
+```
+
+### Cloud Sync (Optional)
+
+By default the app runs as a fully local tool. To enable Tencent CloudBase sync, copy the example config and fill in your CloudBase environment ID:
+
+```bash
+cp config.example.js config.js
+# then edit config.js and set your CloudBase env ID
+```
+
+Without `config.js` the app starts normally without any cloud features.
+
+## Development Mode
+
+Start the app in development mode with either of the following commands (they are equivalent):
+
+```bash
+npm start
+# or
+npm run electron
+```
+
+On startup the app will:
+
+1. Start a built-in static HTTP server bound to `http://127.0.0.1:8080` (auto-increments to `8081`–`8109` if port `8080` is occupied)
+2. Open the main window titled **Work Time Recorder** (`工作时间記録器`)
+3. Place a tray icon in the macOS menu bar
+
+**Closing the main window does not quit the app** — it hides the window to the tray. To exit fully, right-click the tray icon and choose **Quit**.
+
+**Global shortcut:** Press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>T</kbd> from any application to show or hide the main window instantly.
+
+### Port Conflicts
+
+If port `8080` is already in use, the server automatically tries `8081` through `8109`. If you use the CloudBase login feature, you must add the actual port to the CloudBase security domains in the Tencent Cloud console:
+
+```
+http://127.0.0.1:8081
+http://localhost:8081
+```
+
+## Electron Bridge API
+
+`electron/main.js` exposes a small IPC bridge via `preload.js` so the renderer (`script.js`) can communicate with the main process and tray. These APIs are used internally and are not intended for external callers.
+
+| API | Description |
+|-----|-------------|
+| `window.electronAPI.onToggleTimer(callback)` | Registers a callback that fires whenever the tray menu **Start/Stop** item is clicked |
+| `window.electronAPI.reportStatus({ running, elapsed, workName })` | Sends the current timer state to the main process; updates the tray tooltip and menu item label |
+
+## Packaging
+
+Choose one of two build targets depending on your goal:
+
+| Command | Output | Use case |
+|---------|--------|----------|
+| `npm run pack` | Unpacked `.app` in `dist-electron/mac/` | Local testing |
+| `npm run dist` | `.dmg` installer in `dist-electron/` | Distribution |
+
+It is recommended to `pack` first to verify everything works before producing the final DMG.
+
+### Step 1 — Build the Unpacked App
+
+```bash
+npm run pack
+# Output: dist-electron/mac/工作時間記録器.app
+```
+
+Double-click the `.app` to launch it. Behaviour is identical to `npm start` — tray icon, global shortcut, and hide-to-tray on window close are all active.
+
+<Note>
+  On Apple Silicon (M-chip) Macs the output path may be `dist-electron/mac-arm64/工作時間記録器.app` instead.
+</Note>
+
+### Step 2 — Build the DMG Installer
+
+```bash
+npm run dist
+# Output: dist-electron/工作時間記録器-1.0.0.dmg
+```
+
+Open the `.dmg`, drag the app to **Applications**, then launch it from Launchpad or `/Applications`.
+
+## Gatekeeper / Unsigned App Warning
+
+The current build does **not** include Apple notarisation. The `package.json` build configuration has `hardenedRuntime` and `gatekeeperAssess` both set to `false`. When opening the app for the first time, macOS may show an "unverified developer" prompt. To proceed:
+
+1. **System Settings → Privacy & Security** → scroll down and click **Open Anyway**
+2. Or in Finder, **right-click the `.app` → Open**
+
+<Warning>
+  This app is not notarised by Apple. Only run unsigned builds on machines you personally trust. Do not distribute the unsigned `.dmg` publicly — anyone who downloads it will face the same security warning, and the app could be tampered with in transit.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Missing Electron Framework on startup">
+    Re-download and verify the Electron binary:
+
+    ```bash
+    ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run ensure-electron
+    ```
+  </Accordion>
+
+  <Accordion title="npm install is slow or fails">
+    Confirm that your `.npmrc` is configured to use the npmmirror registry, then run `npm install` again. The repository ships a `.npmrc` — if it was removed, restore it or set the mirror manually before installing.
+  </Accordion>
+
+  <Accordion title="Window won't open / app crashes on launch">
+    Open **Console.app**, filter by the app name, and look for error messages. Also verify that at least one port in the range `8080`–`8109` is available and not blocked by a firewall or another process.
+  </Accordion>
+
+  <Accordion title="CloudBase login fails in the packaged app">
+    The packaged app may bind to a different port than `8080`. Check the port the server actually started on (visible in the console output or a startup error dialog), then add both `http://127.0.0.1:<port>` and `http://localhost:<port>` to the security domains in the Tencent CloudBase console.
+  </Accordion>
+
+  <Accordion title="Can't find the tray icon after closing the window">
+    The tray icon lives in the macOS menu bar at the top of the screen. If the bar is crowded, the icon may be hidden — try expanding the menu bar or using **Bartender** / **Ice** to reveal overflow icons. Right-clicking the icon shows **Quit** and **Show Main Window** options.
+  </Accordion>
+
+  <Accordion title="pack / dist fails with a missing icon error">
+    The build expects an `.icns` file at `electron/icons/icon.icns`. Ensure the file exists before running `npm run pack` or `npm run dist`. If it is missing, recreate it from the source SVG or PNG using **iconutil** or a third-party icon generator.
+  </Accordion>
+</AccordionGroup>
+
+## Scripts Reference
+
+| Script | Action |
+|--------|--------|
+| `npm start` | Dev mode — same as `npm run electron` |
+| `npm run electron` | Dev mode — same as `npm start` |
+| `npm run pack` | Build unpacked `.app` for local testing |
+| `npm run dist` | Build `.dmg` installer for distribution |
+| `npm run ensure-electron` | Verify and repair the Electron binary |
+| `npm test` | Run unit tests via `node --test tests/*.test.js` |

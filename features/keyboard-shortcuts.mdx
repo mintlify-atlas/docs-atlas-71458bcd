@@ -1,0 +1,80 @@
+---
+title: "Keyboard Shortcuts for Faster Time Tracking"
+sidebarTitle: "Keyboard Shortcuts"
+description: "Control Work Time Recorder without touching the mouse. Space starts and stops the timer, Ctrl+E exports your records, and Ctrl+/ opens the shortcut reference modal."
+---
+
+Work Time Recorder registers a set of keyboard shortcuts so you can start sessions, export data, and open the shortcut reference without ever reaching for the mouse. Every shortcut is wired up in `initKeyboardShortcuts()`, which attaches a single `keydown` listener to `document` and dispatches to the appropriate action based on the key pressed.
+
+## How shortcuts are registered
+
+`initKeyboardShortcuts()` is called once during page load. It listens for `keydown` events at the document level, which means any key pressed while the page has focus will be evaluated — with one important exception.
+
+```js
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Ignore keypresses inside input fields
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        // Space: Start / Stop
+        if (e.code === 'Space') {
+            e.preventDefault();
+            if (startBtn.disabled) {
+                endWork();
+            } else {
+                startWork();
+            }
+        }
+
+        // Ctrl+E / Cmd+E: Export CSV
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+            exportToCSV();
+        }
+
+        // Ctrl+/ / Cmd+/: Open shortcuts modal
+        if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+            e.preventDefault();
+            showKeyboardShortcuts();
+        }
+    });
+}
+```
+
+<Tip>
+  The `Space` shortcut only fires when focus is **not** inside a text field. If you are typing a work session name in an `<input>` or `<textarea>`, pressing Space will insert a space character as normal and will not toggle the timer.
+</Tip>
+
+## Shortcut reference
+
+| Shortcut | Action |
+|---|---|
+| `Space` | Start / Stop the current work session |
+| `Ctrl + E` / `Cmd + E` | Export work records as CSV |
+| `Ctrl + /` / `Cmd + /` | Open the keyboard shortcuts modal |
+
+On macOS, `Ctrl` and `Cmd` are interchangeable for every shortcut — the handler checks `e.ctrlKey || e.metaKey`, so both modifier keys trigger the same action.
+
+## In-app shortcut reference modal
+
+The **⌨️** button in the header opens the same shortcut table inside the app so you never have to leave the page to look up a key binding.
+
+The modal is managed by three event bindings set up in `initShortcutsUI()`:
+
+- **`shortcutsBtn` (⌨️ header button)** — calls `openShortcutsModal()` to display the overlay.
+- **`closeShortcutsModalBtn` (× button inside the modal)** — calls `closeShortcutsModal()` to hide it.
+- **Clicking the backdrop** — the modal listens for clicks where `e.target === shortcutsModal` (the backdrop element itself) and closes when the user clicks outside the dialog box.
+
+`Ctrl + /` / `Cmd + /` also calls `showKeyboardShortcuts()`, which delegates to `openShortcutsModal()`, so the keyboard shortcut and the header button always produce the same result.
+
+## Electron global shortcut
+
+When running inside the Electron desktop wrapper, an additional system-level shortcut is registered outside the browser window:
+
+| Shortcut | Action |
+|---|---|
+| `⌘ Shift T` / `Ctrl Shift T` | Show / hide the main Work Time Recorder window from any app |
+
+This shortcut uses Electron's `globalShortcut` API with the accelerator string `CommandOrControl+Shift+T`, which maps to `⌘ Shift T` on macOS and `Ctrl Shift T` on Windows and Linux. Because it is registered at the OS level, it works even when the app is in the background or minimized.
