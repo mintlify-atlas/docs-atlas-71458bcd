@@ -1,7 +1,7 @@
 ---
 title: "Deploy to a China Mainland Server with Nginx and HTTPS"
 sidebarTitle: "Domestic Server"
-description: "Host Work Time Recorder on a China mainland server with ICP registration, Nginx static hosting, Let's Encrypt HTTPS, and CloudBase backend for domestic compliance."
+description: "Host Work Time Recorder on a mainland China server with ICP filing, Nginx static hosting, Let's Encrypt HTTPS, and CloudBase for domestic compliance."
 ---
 
 Deploying Work Time Recorder to a China mainland server eliminates cross-border latency for domestic users and satisfies the regulatory requirement that public-facing web services hosted on mainland IP addresses carry a valid ICP filing. This guide walks through every phase of the process in sequence — from purchasing infrastructure to verifying a live HTTPS deployment — using a mainland Nginx server for static hosting and Tencent CloudBase (Shanghai region) for authentication, data storage, and real-time synchronisation.
@@ -223,7 +223,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
     Certbot will prompt for an email address, ask you to accept the terms of service, and then automatically install the certificate and update the Nginx configuration. On success the certificate files are located at:
 
-    ```
+    ```text
     /etc/letsencrypt/live/your-domain.com/fullchain.pem
     /etc/letsencrypt/live/your-domain.com/privkey.pem
     ```
@@ -285,7 +285,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
     1. **rsync** — synchronises the project to `/var/www/work-time-recorder/` on the server, excluding the following paths:
 
-       ```
+       ```text
        .git  .github  .cursor  .vscode  node_modules
        cloudfunctions  docs  supabase  deploy  config.js  cloudbaserc.json
        ```
@@ -361,7 +361,7 @@ Once the deploy script completes, run through the following checks to confirm th
   <Accordion title="Certbot cannot install the certificate to Nginx">
     If Certbot reports something like:
 
-    ```
+    ```text
     Successfully received certificate.
     Could not install certificate
     Could not automatically find a matching server block for your-domain.com.

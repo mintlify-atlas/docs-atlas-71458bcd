@@ -1,7 +1,7 @@
 ---
-title: "CloudBase Data Schema for Work Records and Todos"
+title: "CloudBase Data Schema: Work Records, Todos, and Settings"
 sidebarTitle: "Data Schema"
-description: "Reference for the four CloudBase collections used by Work Time Recorder: work_records, todos, user_settings, and active_sessions, with field types and security rules."
+description: "Reference for the four CloudBase collections used by Work Time Recorder: work_records, todos, user_settings, and active_sessions, with field types."
 ---
 
 Work Time Recorder stores all user data in four Tencent CloudBase document collections. Every document is automatically scoped to the authenticated user — the CloudBase SDK injects `_openid` on write, and the security rules enforce `doc._openid == auth.uid` on every read and write operation across all collections.
@@ -136,7 +136,7 @@ One document per user, keyed by the user's UID. Holds the currently running time
 
 Create the following **non-unique** composite indexes in the CloudBase console to support incremental pulls and sorted record listings:
 
-```
+```text
 work_records: (_openid ASC, updatedAt ASC)  — incremental pull queries
 work_records: (_openid ASC, startTime DESC) — sorted record listing
 todos:        (_openid ASC, updatedAt ASC)  — incremental todo pulls

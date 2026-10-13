@@ -1,7 +1,7 @@
 ---
-title: "CSV Import and Export for Work Records and Todos"
+title: "Export and Import Work Records as CSV in Work Time Recorder"
 sidebarTitle: "Import & Export"
-description: "Export work records and todos from Work Time Recorder as CSV files for backup or analysis. Import CSV files to restore data or migrate from another tool."
+description: "Export work records from Work Time Recorder as CSV files for backup or spreadsheet analysis. Import CSV files to restore data or migrate records."
 ---
 
 Work Time Recorder stores all data in the browser's `localStorage`, which means it is never automatically backed up to a server. The CSV import and export features let you take that data out of the browser for safekeeping, move it to a different machine, analyse it in a spreadsheet, or restore it after a browser reset. Work records and todos each have their own dedicated export and import flows.
@@ -12,7 +12,7 @@ Work Time Recorder stores all data in the browser's `localStorage`, which means 
 
 Click the **📤 导出** button in the History panel (or press `Ctrl+E` / `Cmd+E` from anywhere on the page when focus is not inside an input field). The browser immediately downloads a file named:
 
-```
+```text
 工作记录_YYYY-MM-DD.csv
 ```
 
@@ -70,7 +70,7 @@ Each data row (after the header) is validated independently. A row is skipped �
 
 Invalid rows do not abort the import. After parsing is complete, a confirmation dialog summarises:
 
-```
+```text
 将导入 42 条记录
 （3 条记录因格式错误被跳过）
 
@@ -83,7 +83,7 @@ If you confirm, `DataStore.importRecords(newRecords)` is called with the array o
 
 If no valid rows are found, a detailed error dialog is shown instead of the confirmation prompt. It lists up to five specific row errors, for example:
 
-```
+```text
 未能导入任何有效记录，请检查CSV文件格式
 
 错误详情:
@@ -100,7 +100,7 @@ If no valid rows are found, a detailed error dialog is shown instead of the conf
 
 Pressing `Ctrl+E` (or `Cmd+E` on macOS) while focus is outside any text input triggers `exportToCSV()` directly. There is no keyboard shortcut for import — you must click the button.
 
-```
+```text
 Ctrl + E   →   Export work records CSV
 ```
 
@@ -114,7 +114,7 @@ Ctrl + E   →   Export work records CSV
 
 The Todos panel has its own **📤 导出** button (separate from the work-record export). It downloads all todos across all dates as a single CSV file named:
 
-```
+```text
 待办_YYYY-MM-DD.csv
 ```
 
@@ -144,7 +144,7 @@ Imported todos always receive freshly generated IDs via `TodoModel.generateId()`
 
 The import calls `DataStore.importTodos(parsed)`, which returns the count of successfully added todos. A success alert is shown:
 
-```
+```text
 成功导入 12 条待办！
 ```
 

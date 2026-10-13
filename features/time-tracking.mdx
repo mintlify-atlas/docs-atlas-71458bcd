@@ -1,7 +1,7 @@
 ---
-title: "One-Click Time Tracking with Live Elapsed Timer"
+title: "One-Click Time Tracking with Live Elapsed Timer Display"
 sidebarTitle: "Time Tracking"
-description: "Start and stop work sessions with a single click. Work Time Recorder timestamps each session, shows a live elapsed counter, and lets you name each session for easy filtering later."
+description: "Start and stop work sessions with one click. A live HH:MM:SS counter runs while recording, and every completed session is saved to localStorage."
 ---
 
 Work Time Recorder keeps time tracking as frictionless as possible: one button starts a session, one button ends it. While a session is running, a live `HH:MM:SS` elapsed counter and a real-time wall-clock update every second so you always know how long you have been working. Every completed session is stamped with its start time, end time, and duration, then persisted to `localStorage` so your history survives a page refresh or a browser restart.
@@ -14,8 +14,8 @@ The coloured dot next to the status label tells you at a glance whether a sessio
 
 | State | Dot class | Label |
 |---|---|---|
-| Recording | `status-dot active` (green) | 已開始 |
-| Idle | `status-dot stopped` (grey) | 未開始 |
+| Recording | `status-dot active` (green) | 已开始 |
+| Idle | `status-dot stopped` (grey) | 未开始 |
 
 While recording, the **Start** button is disabled and the **Stop** button is enabled; the inverse is true when idle.
 
@@ -29,7 +29,7 @@ Once a session starts the input is disabled so the name cannot be changed mid-se
 
 ### Quick-tag bar
 
-Below the work name input a row of tag buttons provides one-click categorisation. Clicking a tag appends ` - tagName` to the current work name value (or sets it to `tagName` when the field is empty). Clicking the same tag a second time removes it. The button receives a `selected` CSS class while its tag is present in the work name, so the bar always reflects the current input state.
+Below the work name input a row of tag buttons provides one-click categorisation. Clicking a tag appends ` - tagName` to the current work name value (or sets it to `tagName` when the field is empty). The button receives a `selected` CSS class while its tag text is detected in the work name field, so the bar always reflects the current input state. To remove a tag, edit the work name input directly.
 
 ```js
 // Appending a tag — from renderQuickTags() in script.js
@@ -84,7 +84,7 @@ The in-progress session is stored as a JSON object under the key `currentRecord`
   "startTime": "2024-06-10T09:15:00.000Z",
   "endTime": null,
   "isActive": true,
-  "workName": "Feature development - 開発"
+  "workName": "Feature development - 开发"
 }
 ```
 

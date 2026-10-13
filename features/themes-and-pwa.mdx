@@ -1,5 +1,5 @@
 ---
-title: "Dark and Light Themes with PWA Offline Support"
+title: "Dark and Light Themes with PWA Offline Support in WTR"
 sidebarTitle: "Themes & PWA"
 description: "Switch between dark and light mode in Work Time Recorder. Install it as a PWA for offline access and a native-app feel on desktop and mobile."
 ---
@@ -131,7 +131,7 @@ function registerServiceWorker() {
 
 | Strategy | Files covered | Behavior |
 |---|---|---|
-| **Network-first** (Stale-While-Revalidate) | `index.html`, `script.js`, `style.css`, and all other app source files | Always tries the network first; falls back to the cache if the network is unavailable. Fresh responses are written back to the cache. |
+| **Network-first** | `index.html`, `script.js`, `style.css`, and all other app source files | Always tries the network first; falls back to the cache if the network is unavailable. Fresh responses are written back to the cache. |
 | **Cache-first** | Vendor/static assets (e.g. `vendor/cloudbase.js`) | Serves from cache immediately; fetches from the network only if the asset is not cached yet. |
 
 `sw.js` itself should be served by your web server with a `no-cache` response header so browsers always fetch the latest version of the Service Worker on each visit, allowing cache updates to propagate immediately.
@@ -140,7 +140,7 @@ To force all users to pick up new cached files, increment the `CACHE_NAME` const
 
 ```js
 // sw.js
-const CACHE_NAME = 'work-time-recorder-v31'; // bump this to bust the cache
+const CACHE_NAME = 'work-time-recorder-v30'; // increment (e.g. to v31) to bust the cache
 ```
 
 On activation, the Service Worker deletes any caches whose name does not match the current `CACHE_NAME`, ensuring stale assets are cleaned up automatically.

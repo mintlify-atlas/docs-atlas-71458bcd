@@ -1,7 +1,7 @@
 ---
-title: "Work Tags and Timed Alarm Reminders"
+title: "Work Tags and Timed Alarm Reminders in Work Time Recorder"
 sidebarTitle: "Tags & Alarms"
-description: "Categorise work sessions with custom tags and set repeating alarms up to 8 hours. Work Time Recorder uses tags to separate work time from rest time in statistics."
+description: "Categorise sessions with custom tags and set repeating alarms up to 8 hours. Tags drive work-vs-rest filtering in the statistics panel."
 ---
 
 Work Time Recorder gives you two tools to stay organised and on-schedule: **tags** let you classify every work session so the statistics panel can separate productive work from rest time, and **alarms** fire an audio alert and a system notification after a configurable interval so you never lose track of how long you have been in a single stretch. Both features are fully customisable and persist their configuration to `localStorage`.
@@ -14,8 +14,8 @@ Work Time Recorder gives you two tools to stay organised and on-schedule: **tags
 
 When the app first loads with no saved tag list, `loadTags()` writes the following defaults to `DataStore` under the `workTags` localStorage key:
 
-```
-開発  学習  調試  文書  休息
+```text
+开发  学习  调试  文档  休息
 ```
 
 The special constant `REST_TAG = '休息'` marks the rest category. Any session whose work name contains this tag (detected by splitting on ` - ` separators) is treated as a rest session rather than productive work time.
@@ -39,7 +39,7 @@ The tag is appended with a ` - ` separator so `getTagsInWorkName()` can later pa
 
 ### Managing tags
 
-Open the tag management modal by clicking **管理標籤**. From there you can:
+Open the tag management modal by clicking **管理标签**. From there you can:
 
 - **Add** a new tag: type a name (max 20 characters) and click **➕ 添加** or press Enter. Duplicate names and empty strings are rejected.
 - **Reorder** tags: drag any row by its `☰` handle. On `dragend` the new DOM order is read back and saved via `DataStore.saveTags(newOrder)`, and `renderQuickTags()` immediately reflects the change in the quick-tag bar.
@@ -92,7 +92,7 @@ The `alarmHeaderBadge` element in the page header shows the active alarm duratio
 
 **Preset buttons** — a row of buttons is rendered from the stored preset list. Clicking one calls `setAlarmMinutes(minutes)`, which saves the value to `alarmMinutes`, updates the header badge, unlocks audio, and (re)starts the countdown if a session is currently active.
 
-**Custom duration** — type any value between **1 and 480 minutes** into the custom input and click **設置** (or press Enter). `setCustomAlarm()` validates the range and delegates to `setAlarmMinutes()`.
+**Custom duration** — type any value between **1 and 480 minutes** into the custom input and click **设置** (or press Enter). `setCustomAlarm()` validates the range and delegates to `setAlarmMinutes()`.
 
 ### Alarm presets
 
@@ -115,9 +115,9 @@ When the countdown completes, `triggerAlarm()` runs three actions simultaneously
    playBeep(now + 0.35, 0.3, 880); // beep 2
    playBeep(now + 0.70, 0.3, 880); // beep 3
    ```
-2. **Desktop notification** — if `Notification.permission === 'granted'`, a system notification is shown with the title `工作時間記錄器` and a body describing the elapsed alarm duration. Click the notification to bring the tab into focus.
+2. **Desktop notification** — if `Notification.permission === 'granted'`, a system notification is shown with the title `工作时间记录器` and a body describing the elapsed alarm duration. Click the notification to bring the tab into focus.
 3. **Modal dialog** — the `alarmModal` overlay appears with two buttons:
-   - **繼續計時** — calls `continueAlarm()`, which dismisses the modal and immediately calls `startAlarmTimer()` to begin a fresh countdown cycle.
+   - **继续计时** — calls `continueAlarm()`, which dismisses the modal and immediately calls `startAlarmTimer()` to begin a fresh countdown cycle.
    - **結束** — calls `endFromAlarm()`, which dismisses the modal and then calls `endWork()` to stop and save the current session.
 
 ### Notification permission
@@ -126,9 +126,9 @@ The notification permission button calls `Notification.requestPermission()`. The
 
 | `Notification.permission` | Status text |
 |---|---|
-| `granted` | 已開啟，到點將彈出系統通知 |
-| `denied` | 已拒絕。請在瀏覽器設置中允許本站通知。 |
-| `default` | 未開啟，需點擊「開啟系統通知」授權。 |
+| `granted` | 已开启，到点将弹出系统通知 |
+| `denied` | 已拒绝。请在浏览器设置中允许本站通知。 |
+| `default` | 未开启，需点击「开启系统通知」授权。 |
 
 <Accordion title="How the alarm progress bar works">
   While a session is active and an alarm duration is set, a progress bar fills from left to right over the chosen interval. It updates every second on the same `setInterval` tick that drives the elapsed counter.

@@ -1,7 +1,7 @@
 ---
 title: "Run Work Time Recorder as a Mac Desktop App with Electron"
 sidebarTitle: "Mac App"
-description: "Package Work Time Recorder as a native macOS desktop app using Electron. Includes a system tray icon, global keyboard shortcut, and auto-start local server."
+description: "Package Work Time Recorder as a native macOS app using Electron. Features a system tray icon, a global keyboard shortcut, and an auto-start local server."
 ---
 
 Work Time Recorder ships as a native macOS desktop app powered by Electron. When launched, it spins up a built-in HTTP server, opens a titled application window, and places a persistent icon in the macOS menu bar — so the app stays running in the background even after you close the window. This page walks through installing dependencies, running in development mode, building a distributable `.app` or `.dmg`, and diagnosing common issues.
@@ -51,7 +51,7 @@ npm run electron
 On startup the app will:
 
 1. Start a built-in static HTTP server bound to `http://127.0.0.1:8080` (auto-increments to `8081`–`8109` if port `8080` is occupied)
-2. Open the main window titled **Work Time Recorder** (`工作时间記録器`)
+2. Open the main window titled **Work Time Recorder** (`工作时间记录器`)
 3. Place a tray icon in the macOS menu bar
 
 **Closing the main window does not quit the app** — it hides the window to the tray. To exit fully, right-click the tray icon and choose **Quit**.
@@ -62,7 +62,7 @@ On startup the app will:
 
 If port `8080` is already in use, the server automatically tries `8081` through `8109`. If you use the CloudBase login feature, you must add the actual port to the CloudBase security domains in the Tencent Cloud console:
 
-```
+```text
 http://127.0.0.1:8081
 http://localhost:8081
 ```
@@ -91,20 +91,20 @@ It is recommended to `pack` first to verify everything works before producing th
 
 ```bash
 npm run pack
-# Output: dist-electron/mac/工作時間記録器.app
+# Output: dist-electron/mac/工作时间记录器.app
 ```
 
 Double-click the `.app` to launch it. Behaviour is identical to `npm start` — tray icon, global shortcut, and hide-to-tray on window close are all active.
 
 <Note>
-  On Apple Silicon (M-chip) Macs the output path may be `dist-electron/mac-arm64/工作時間記録器.app` instead.
+  On Apple Silicon (M-chip) Macs the output path may be `dist-electron/mac-arm64/工作时间记录器.app` instead.
 </Note>
 
 ### Step 2 — Build the DMG Installer
 
 ```bash
 npm run dist
-# Output: dist-electron/工作時間記録器-1.0.0.dmg
+# Output: dist-electron/工作时间记录器-1.0.0.dmg
 ```
 
 Open the `.dmg`, drag the app to **Applications**, then launch it from Launchpad or `/Applications`.

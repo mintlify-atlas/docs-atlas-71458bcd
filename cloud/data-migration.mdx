@@ -1,7 +1,7 @@
 ---
-title: "Migrate Local Data to CloudBase Cloud Storage"
+title: "How to Migrate Work Time Recorder Data to CloudBase"
 sidebarTitle: "Data Migration"
-description: "Move existing Work Time Recorder data from localStorage to CloudBase cloud storage, or restore from a Supabase export. Three migration scenarios with step-by-step instructions."
+description: "Move Work Time Recorder data from localStorage to CloudBase, or import from a Supabase export. Three migration scenarios with step-by-step instructions."
 ---
 
 Work Time Recorder supports three migration paths depending on where your data currently lives. The simplest path is **Scenario A** — if your records are already in `localStorage`, the sync engine handles the migration automatically the first time you log in. Scenarios B and C cover legacy Supabase data and clean-slate restarts respectively.
@@ -16,7 +16,7 @@ Work Time Recorder supports three migration paths depending on where your data c
 
 This is the default path for users who have been using the app without cloud sync and are now linking a CloudBase account for the first time.
 
-```
+```text
 1. Complete CloudBase setup (fill in your environment ID in config.js)
 2. Open the app and register / log in
 3. On first login for a new account, the sync engine runs a full diff:

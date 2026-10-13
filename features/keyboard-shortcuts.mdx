@@ -1,7 +1,7 @@
 ---
-title: "Keyboard Shortcuts for Faster Time Tracking"
+title: "Keyboard Shortcuts for Faster Time Tracking in WTR"
 sidebarTitle: "Keyboard Shortcuts"
-description: "Control Work Time Recorder without touching the mouse. Space starts and stops the timer, Ctrl+E exports your records, and Ctrl+/ opens the shortcut reference modal."
+description: "Control Work Time Recorder without the mouse. Space starts and stops the timer, Ctrl+E exports your records, and Ctrl+/ opens the shortcut reference."
 ---
 
 Work Time Recorder registers a set of keyboard shortcuts so you can start sessions, export data, and open the shortcut reference without ever reaching for the mouse. Every shortcut is wired up in `initKeyboardShortcuts()`, which attaches a single `keydown` listener to `document` and dispatches to the appropriate action based on the key pressed.
@@ -75,6 +75,6 @@ When running inside the Electron desktop wrapper, an additional system-level sho
 
 | Shortcut | Action |
 |---|---|
-| `⌘ Shift T` / `Ctrl Shift T` | Show / hide the main Work Time Recorder window from any app |
+| `⌘⇧T` / `Ctrl+Shift+T` | Show / hide the main Work Time Recorder window from any app |
 
-This shortcut uses Electron's `globalShortcut` API with the accelerator string `CommandOrControl+Shift+T`, which maps to `⌘ Shift T` on macOS and `Ctrl Shift T` on Windows and Linux. Because it is registered at the OS level, it works even when the app is in the background or minimized.
+This shortcut uses Electron's `globalShortcut` API with the accelerator string `CommandOrControl+Shift+T`, which maps to `⌘⇧T` on macOS and `Ctrl+Shift+T` on Windows and Linux. Because it is registered at the OS level, it works even when the app is in the background or minimized.

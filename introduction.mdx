@@ -1,7 +1,7 @@
 ---
 title: "Work Time Recorder: One-Click Time Tracking in Your Browser"
 sidebarTitle: "Introduction"
-description: "Work Time Recorder is a zero-dependency browser app that records work sessions with a single click, stores data locally, and optionally syncs to the cloud. Learn what it does and how it works."
+description: "Work Time Recorder is a zero-dependency browser app that records sessions with one click, stores data in localStorage, and optionally syncs to the cloud."
 ---
 
 Work Time Recorder is a lightweight, browser-based application for tracking how you spend your working hours. There is nothing to install, no account required, and no server to configure — open the page, click **Start**, and your session begins. All data is written directly to your browser's `localStorage`, so it persists across page reloads without touching a remote database. For teams or individuals who want cross-device access, an optional CloudBase sync layer and a packaged Electron Mac app are also available.
@@ -16,7 +16,7 @@ Work Time Recorder is a lightweight, browser-based application for tracking how 
     A built-in to-do panel lets you plan your day alongside your time records. Tasks are organised by date, can be checked off when complete, and are exportable as CSV. You can also pick a todo from the dropdown to pre-fill the work name when starting a new session.
   </Card>
   <Card title="Tag Categorisation" icon="tag">
-    Apply quick-select tags (e.g. Development, Meeting, Learning, Rest) to each work session for easy filtering and reporting. Custom tags can be added, reordered by drag-and-drop, and deleted from the tag management modal. Tags are stored per-session as part of the work name using a ` - ` separator.
+    Apply quick-select tags to each work session for easy filtering and reporting. The five built-in defaults are **开发** (Development), **学习** (Learning), **调试** (Debugging), **文档** (Documentation), and **休息** (Rest). Custom tags can be added, reordered by drag-and-drop, and deleted from the tag management modal. Tags are appended to the work name using a ` - ` separator.
   </Card>
   <Card title="Alarm Reminders" icon="bell">
     Set a countdown alarm using preset durations (5, 10, 15, 30, 45 minutes) or any custom value up to 480 minutes. A progress bar tracks remaining time, and a Web Audio API chime fires when the countdown ends. Browser push notifications are supported for background alerts.

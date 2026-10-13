@@ -1,5 +1,5 @@
 ---
-title: "Daily Todo List Linked to Work Sessions"
+title: "Date-Scoped Daily Todo List with Work Session Integration"
 sidebarTitle: "Todos"
 description: "Manage per-day task lists in Work Time Recorder. Todos are date-scoped, can be checked off, reordered, and optionally pre-filled into work session names."
 ---
@@ -41,7 +41,7 @@ Click the 🗑️ icon on any row. After a confirmation prompt, `DataStore.delet
 By default the panel shows today's todos. To browse another day:
 
 1. Use the date picker (`todoFilterDate`) to select a date.
-2. Click the **筛選** (filter) button — `todoDateValue` is updated and `renderTodos()` re-renders for the new date.
+2. Click the **筛选** (filter) button — `todoDateValue` is updated and `renderTodos()` re-renders for the new date.
 3. Click the **今天** (Today) button to reset `todoDateValue` to the current local date string and return to today's list.
 
 The **清空** (Clear) button only removes todos for the currently-viewed date, not your entire history.
@@ -66,7 +66,7 @@ const options = TodoModel.workNameOptions(DataStore.getTodos(), today);
 
 ### Export format
 
-Click **📤 導出** to download all todos (across all dates) as a UTF-8 CSV with a BOM prefix. The file is named `待办_YYYY-MM-DD.csv`.
+Click **📤 导出** to download all todos (across all dates) as a UTF-8 CSV with a BOM prefix. The file is named `待办_YYYY-MM-DD.csv`.
 
 | Column | Type | Description |
 |---|---|---|
@@ -86,7 +86,7 @@ Click **📤 導出** to download all todos (across all dates) as a UTF-8 CSV wi
 
 ### Import
 
-Click **📥 導入** and select a CSV file. Work Time Recorder calls `TodoModel.parseTodoCsv()` to parse each row. Valid rows are passed to `DataStore.importTodos()`, which generates **new UUIDs** for every imported row (so imports never overwrite existing todos) and merges them into the stored list. Up to **5 000** rows can be imported per file; files larger than **2 MB** are rejected before reading.
+Click **📥 导入** and select a CSV file. Work Time Recorder calls `TodoModel.parseTodoCsv()` to parse each row. Valid rows are passed to `DataStore.importTodos()`, which generates **new UUIDs** for every imported row (so imports never overwrite existing todos) and merges them into the stored list. Up to **5 000** rows can be imported per file; files larger than **2 MB** are rejected before reading.
 
 ---
 
